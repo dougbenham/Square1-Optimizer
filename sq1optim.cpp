@@ -386,6 +386,7 @@ public:
 		for( int i=0; i<24; i++)
 			pos[i]="AAIBBJCCKDDLMEENFFOGGPHH"[i]-'A';
 	}
+	/* No need for this now. It was simply for debugging purposes.
 	char* getvalue(){
 		char* var = new char[24];
 		int index = 0;
@@ -397,7 +398,7 @@ public:
 		}
 		var[index] = 0;
 		return var;
-	}
+	}*/
 	void print(){
 		for(int i=0; i<24; i++){
 			cout<<"ABCDEFGH12345678"[pos[i]];
@@ -759,7 +760,7 @@ public:
 		shp2 = stt.tranTable[shp2][mirrmv[m]];
 		return r;
 	}
-	void solve(bool r, char* targetState, bool useTopTurns, bool useBotTurns){
+	void solve(bool r, char* targetState, bool useTopTurns, bool useBotTurns, int* pruneamount){
 		int l=-1;
 		moveLen=0;
 		unsigned long nodes=0;
@@ -773,7 +774,7 @@ public:
 			if( !turnMetric && middle!=0 ) l++;
 			if(!r) cout<<"Searching depth "<<l<<".."<<endl<<flush;
 			for( int i=0; i<6; i++) lastTurns[i]=0;
-			if (search(l,3, &nodes, targetState, useTopTurns, useBotTurns) > 0)
+			if (search(l,3, &nodes, targetState, useTopTurns, useBotTurns, pruneamount) > 0)
 			{
 				cout<<"Continue searching? (type 'n' then press enter to stop, otherwise just press enter)  "<<flush;
 				if (getchar() == 'n')
@@ -783,7 +784,7 @@ public:
 		}
 		while( result );
 	}
-	int search( const int l, const int lm, unsigned long *nodes, char* targetState, bool useTopTurns, bool useBotTurns){
+	int search( const int l, const int lm, unsigned long *nodes, char* targetState, bool useTopTurns, bool useBotTurns, int* pruneamount){
 		int i,r=0;
 
 		// search for l more moves. previous move was lm.
@@ -812,50 +813,52 @@ public:
 		if( l==0 ){
 
 			//if( shp==4163 && e0==69 && e1==44 && e2==44 && c0==69 && c1==44 && c2==44 && middle>=0 ){
-			
-			char* value = fullpos.getvalue();
 			bool equals = true;
-			for (int i = 0; i < 16; i++)
+			int i = 0;
+			for (int strindex = 0; strindex < 16; strindex++)
 			{
-				switch (targetState[i])
+				switch (targetState[strindex])
 				{
 					case 'X':
 					case 'x':
 						// Edge
-						equals = equals && (value[i] >= '1' && value[i] <= '8');
+						equals = equals && (fullpos.pos[i] >= 8 && fullpos.pos[i] <= 15);
 						break;
 					case 'Y':
 					case 'y':
 						// Corner
-						equals = equals && (value[i] >= 'A' && value[i] <= 'H');
+						equals = equals && (fullpos.pos[i] >= 0 && fullpos.pos[i] <= 7);
 						break;
 					case 'K':
 					case 'k':
 						// U edge
-						equals = equals && (value[i] >= '1' && value[i] <= '4');
+						equals = equals && (fullpos.pos[i] >= 8 && fullpos.pos[i] <= 11);
 						break;
 					case 'L':
 					case 'l':
 						// D edge
-						equals = equals && (value[i] >= '5' && value[i] <= '8');
+						equals = equals && (fullpos.pos[i] >= 12 && fullpos.pos[i] <= 15);
 						break;
 					case 'M':
 					case 'm':
 						// U corner
-						equals = equals && (value[i] >= 'A' && value[i] <= 'D');
+						equals = equals && (fullpos.pos[i] >= 0 && fullpos.pos[i] <= 3);
 						break;
 					case 'N':
 					case 'n':
 						// D corner
-						equals = equals && (value[i] >= 'E' && value[i] <= 'H');
+						equals = equals && (fullpos.pos[i] >= 4 && fullpos.pos[i] <= 7);
 						break;
 					default:
 						// Exact match
-						equals = equals && value[i] == "A1B2C3D45E6F7G8H"[i];
+						equals = equals && fullpos.pos[i] == "A1B2C3D45E6F7G8H"[strindex];
 						break;
 				}
+				if (fullpos.pos[i] < 8)
+					i += 2;
+				else
+					i += 1;
 			}
-			delete[] value;
 			
 			if( shp==4163 && equals && middle>=0 ){
 				printsol(*nodes);
@@ -864,9 +867,9 @@ public:
 		}
 
 		// prune
-		if( pr1.table[shp ][e0][c0]>l+3 ) return(0);
-		if( pr2.table[shp ][e1][c1]>l+3 ) return(0);
-		if( pr2.table[shp2][e2][c2]>l+3 ) return(0);
+		if( pr1.table[shp ][e0][c0]>l+*pruneamount ) return(0);
+		if( pr2.table[shp ][e1][c1]>l+*pruneamount ) return(0);
+		if( pr2.table[shp2][e2][c2]>l+*pruneamount ) return(0);
 
 		// try all top layer moves
 		if( lm>=2 && useTopTurns ){
@@ -875,7 +878,7 @@ public:
 				if( turnMetric || ignoreTrans || i<6 || l<2 ){
 					moveList[moveLen++]=i;
 					lastTurns[4]=i;
-					r+=search( turnMetric?l-1:l, 0, nodes, targetState, useTopTurns, useBotTurns);
+					r+=search( turnMetric?l-1:l, 0, nodes, targetState, useTopTurns, useBotTurns, pruneamount);
 					moveLen--;
 					if(r!=0 && !findAll) return(r);
 				}
@@ -889,7 +892,7 @@ public:
 			do{
 				moveList[moveLen++]=i+12;
 				lastTurns[5]=i;
-				r+=search( turnMetric?l-1:l, 1, nodes, targetState, useTopTurns, useBotTurns);
+				r+=search( turnMetric?l-1:l, 1, nodes, targetState, useTopTurns, useBotTurns, pruneamount);
 				moveLen--;
 				if(r!=0 && !findAll) return(r);
 				i+=doMove(1);
@@ -907,7 +910,7 @@ public:
 			lastTurns[5]=0;
 			doMove(2);
 			moveList[moveLen++]=0;
-			r+=search(l-1, 2, nodes, targetState, useTopTurns, useBotTurns);
+			r+=search(l-1, 2, nodes, targetState, useTopTurns, useBotTurns, pruneamount);
 			if(r!=0 && !findAll) return(r);
 			moveLen--;
 			doMove(2);
@@ -955,6 +958,7 @@ int show(int e){
 // -w|u=twist/turn metric  -a=all  -m=ignore middle
 int main(int argc, char* argv[]){
 	
+	cout<<"Jaap's Square-1 Optimizer v2.1 BETA http://www.jaapsch.net/ (modified by Doug Benham, dougbenham@yahoo.com)"<<endl<<endl<<flush;
 	bool ignoreMid=false;
 	bool ignoreTrans=false;
 	bool turnMetric=true;
@@ -962,6 +966,7 @@ int main(int argc, char* argv[]){
 	bool repeat=false;
 	bool useTopTurns=true;
 	bool useBotTurns=true;
+	int pruneamount = 2;
 	char* targetState = "----------------"; // 16 -'s
 	char *inpFile=NULL;
 	int posArg=-1;
@@ -1002,6 +1007,10 @@ int main(int argc, char* argv[]){
 					useTopTurns = false;
 					useBotTurns = true;
 				}
+				break;
+			case 'p':
+				pruneamount = atoi(argv[i + 1]);
+				i++;
 				break;
 			case 'i':
 			case 'I':
@@ -1075,7 +1084,7 @@ int main(int argc, char* argv[]){
 		s.set(p, turnMetric, findAll, ignoreTrans);
 
 		//solve position
-		s.solve(repeat, targetState, useTopTurns, useBotTurns);
+		s.solve(repeat, targetState, useTopTurns, useBotTurns, &pruneamount);
 	}while( posArg<0 && ( (inpFile==NULL && repeat) || (inpFile!=NULL && !is.eof() ) ));
 
 	cout<<"Press enter to exit.."<<flush;
