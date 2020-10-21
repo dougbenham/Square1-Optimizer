@@ -386,7 +386,6 @@ public:
 		for( int i=0; i<24; i++)
 			pos[i]="AAIBBJCCKDDLMEENFFOGGPHH"[i]-'A';
 	}
-	/* No need for this now. It was simply for debugging purposes.
 	char* getvalue(){
 		char* var = new char[24];
 		int index = 0;
@@ -398,7 +397,7 @@ public:
 		}
 		var[index] = 0;
 		return var;
-	}*/
+	}
 	void print(){
 		for(int i=0; i<24; i++){
 			cout<<"ABCDEFGH12345678"[pos[i]];
@@ -716,12 +715,11 @@ class SimpPosition {
 	int lastTurns[6];
 	bool turnMetric;
 	bool findAll;
-	bool ignoreTrans;
 
 public:
 	SimpPosition( ShapeTranTable& stt0, ShpColTranTable& scte0, ShpColTranTable& sctc0, PrunTable& pr10, PrunTable& pr20 )
 		: stt(stt0), scte(scte0), sctc(sctc0), pr1(pr10), pr2(pr20) { };
-	void set(FullPosition& p, bool turnMetric0, bool findAll0, bool ignoreTrans0){
+	void set(FullPosition& p, bool turnMetric0, bool findAll0){
 		fullpos = p;
 		c0=sctc.ct.choice2Idx[p.getCornerColouring(0)];
 		c1=sctc.ct.choice2Idx[p.getCornerColouring(1)];
@@ -734,9 +732,8 @@ public:
 		middle = p.middle;
 		turnMetric=turnMetric0;
 		findAll=findAll0;
-		ignoreTrans=ignoreTrans0;
 	};
-	int doMove(int m){
+	inline int doMove(int m){
 		const int mirrmv[3]={1,0,2};
 		int r=0;
 		if(m==0){
@@ -793,7 +790,7 @@ public:
 
 		//prune based on transformation
 		// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
-		if( turnMetric && !ignoreTrans ){
+		if( turnMetric ){
 			// (a,b)/(c,d)/(e,f) -> (6+a,6+b)/(d,c)/(6+e,6+f)
 			// moves changes by:
 			// a,b,e,f=0/6 -> m++/m--
@@ -851,7 +848,7 @@ public:
 						break;
 					default:
 						// Exact match
-						equals = equals && fullpos.pos[i] == "A1B2C3D45E6F7G8H"[strindex];
+						equals = equals && fullpos.pos[i] == ("AIBJCKDLMENFOGPH"[strindex] - 'A');
 						break;
 				}
 				if (fullpos.pos[i] < 8)
@@ -875,7 +872,7 @@ public:
 		if( lm>=2 && useTopTurns ){
 			i=doMove(0);
 			do{
-				if( turnMetric || ignoreTrans || i<6 || l<2 ){
+				if( turnMetric || i<6 || l<2 ){
 					moveList[moveLen++]=i;
 					lastTurns[4]=i;
 					r+=search( turnMetric?l-1:l, 0, nodes, targetState, useTopTurns, useBotTurns, pruneamount);
@@ -958,9 +955,8 @@ int show(int e){
 // -w|u=twist/turn metric  -a=all  -m=ignore middle
 int main(int argc, char* argv[]){
 	
-	cout<<"Jaap's Square-1 Optimizer v2.1 BETA http://www.jaapsch.net/ (modified by Doug Benham, dougbenham@yahoo.com)"<<endl<<endl<<flush;
+	cout<<"Jaap's Square-1 Optimizer v2.2 BETA http://www.jaapsch.net/ (modified by Doug Benham, dougbenham@yahoo.com)"<<endl<<endl<<flush;
 	bool ignoreMid=false;
-	bool ignoreTrans=false;
 	bool turnMetric=true;
 	bool findAll=false;
 	bool repeat=false;
@@ -979,9 +975,6 @@ int main(int argc, char* argv[]){
 			case 'u':
 			case 'U':
 				turnMetric=true; break;
-			case 'x':
-			case 'X':
-				ignoreTrans=true; break;
 			case 'a':
 			case 'A':
 				findAll=true; break;
@@ -1014,7 +1007,18 @@ int main(int argc, char* argv[]){
 				break;
 			case 'i':
 			case 'I':
-				inpFile=argv[i]+2; break;
+				inpFile=argv[i]+2;
+				break;
+			case '?':
+			case 'h':
+				cout<<"-w"<<endl<<"   By default the solver operates in turn-metric. To change it to find twist-metric optimal solutions, use the '-w' switch."<<endl<<"-a"<<endl<<"   Find all optimal sequences. By default, the solver will stop when one is found."<<endl<<"-m"<<endl<<"   Ignore middle layer. By default the middle layer is not ignored."<<endl<<"-i"<<endl<<"   Use an input file to give the positions to solve. Each line in the file contains one position (or move sequence). The filename should immediately follow the -i switch without a space in between."<<endl<<"-r"<<endl<<"   Continuously solve random positions (provided no position is supplied)."<<endl<<"-p x"<<endl<<"   x is the prune amount. By default it is 2. I would recommend a low # such as 1, 2, 3, 4, or 5. The higher the number, the less solutions the pruning will throw out, thus the more computing time necessary to find a solution. However, the lower the number, the more likely that the solver will throw out a more optimal solution."<<endl;
+				cout<<"-onlytop"<<endl<<"   Limit the solver to use only top layer and twist moves."<<endl;
+				cout<<"-onlybottom"<<endl<<"   Limit the solver to use only bottom layer and twist moves."<<endl;
+				cout<<"-t"<<endl<<"   Target state. - = Exact match, X = Any edge (top/bottom), Y = Any corner (top/bottom), K = Top layer edge, L = Bottom layer edge, M = Top layer corner, N = Bottom layer corner."<<endl;
+				cout<<endl<<endl<<"Example:"<<endl<<"   Position denotes a 3 cycle of edges, including the DF, UB, and UL edges. The target state says that the only thing that matters is the orientation (all pieces must be in their correct layers, not correct position). -a states that all solutions must be found. -m states that the middle layer doesn't matter. The -w states that the solution should be optimal in the twist metric. The -p 5 helps ensure that no optimal solutions are missed. -onlytop states that only the U and R2 moves can be made (no D moves)."<<endl<<"\"sq1optim A2B5C3D41E6F7G8H -t MKMKMKMKLNLNLNLN -a -m -w -p 5 -onlytop\""<<flush;
+				getchar();
+				return(0);
+				break;
 			default:
 				return show(1);
 			}
@@ -1040,18 +1044,18 @@ int main(int argc, char* argv[]){
 	cout << "Initializing..." << endl;
 	// calculate transition tables
 	ChoiceTable ct;
-	cout << "  5. Shape transition table" << endl;
+	cout << "  5. Shape transition table.." << endl;
 	ShapeTranTable st;
-	cout << "  4. Colouring 1 transition table" << endl;
+	cout << "  4. Colouring 1 transition table.." << endl;
 	ShpColTranTable scte( st, ct, true );
-	cout << "  3. Colouring 2 transition table" << endl;
+	cout << "  3. Colouring 2 transition table.." << endl;
 	ShpColTranTable sctc( st, ct, false );
 
 	//calculate pruning tables for two colourings
 	FullPosition q;
-	cout << "  2. Colouring 1 pruning table" << endl;
+	cout << "  2. Colouring 1 pruning table.." << endl;
 	PrunTable pr1(q, 0, st,scte,sctc, turnMetric );
-	cout << "  1. Colouring 2 pruning table" << endl;
+	cout << "  1. Colouring 2 pruning table.." << endl;
 	PrunTable pr2(q, 1, st,scte,sctc, turnMetric );
 	cout << "  0. Finished." << endl << endl;
 	SimpPosition s( st, scte, sctc, pr1, pr2 );
@@ -1081,7 +1085,7 @@ int main(int argc, char* argv[]){
 		p.print();
 
 		// convert position to colour encoding
-		s.set(p, turnMetric, findAll, ignoreTrans);
+		s.set(p, turnMetric, findAll);
 
 		//solve position
 		s.solve(repeat, targetState, useTopTurns, useBotTurns, &pruneamount);
